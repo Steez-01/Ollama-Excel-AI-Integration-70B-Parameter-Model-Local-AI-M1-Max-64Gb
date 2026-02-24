@@ -1,0 +1,39 @@
+Function LocalAI(prompt As String) As String
+    Application.Volatile False  '
+    Dim cleanPrompt As String
+    Dim shellCmd As String
+    Dim response As String
+    Dim rawAIResult As String
+    
+    ' 1. Clean the prompt for JSON safety
+    cleanPrompt = Replace(prompt, """", "'")
+    cleanPrompt = Replace(cleanPrompt, vbLf, " ")
+    cleanPrompt = Replace(cleanPrompt, vbCr, " ")
+    
+    ' 2. Build the curl command with escaped quotes for the internal JSON
+    shellCmd = "curl -s -X POST http://127.0.0.1:11434/api/generate " & _
+               "-d ""{\""model\"": \""llama3.1:8b\"", \""prompt\"": \""" & cleanPrompt & "\"", \""stream\"": false}"""
+               
+    ' 3. Call your AppleScript
+    On Error Resume Next
+    response = AppleScriptTask("RunShell.scpt", "executeOllama", shellCmd)
+    
+    ' 4. Strict Extraction
+    If InStr(response, """response"":""") > 0 Then
+        ' Extract text between the response tags
+        rawAIResult = Split(Split(response, """response"":""")(1), """")(0)
+        
+        ' Remove any non-numeric noise the AI might have added
+        rawAIResult = Trim(rawAIResult)
+        rawAIResult = Replace(rawAIResult, ".", "")
+        rawAIResult = Replace(rawAIResult, "Row", "")
+        
+        ' Convert to a pure number for Excel
+        LocalAI = Val(Trim(rawAIResult))
+    Else
+        LocalAI = "Parse Error"
+    End If
+End Function
+
+
+
